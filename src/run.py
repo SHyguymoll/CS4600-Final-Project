@@ -34,17 +34,18 @@ def client():
         # initializing and creating AES key with initialization vector (both random)
         picked_aes_key = algorithms.AES(os.urandom(AES_KEY_SIZE))
         iv = modes.CBC(os.urandom(16))
+        
         # opening message from file
         message_file = open(msg_location)
         message = message_file.readline().encode()
         message_file.close()
         
-        # AES encryption of message
+        # AES encryption of message, see https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/
         ciph = Cipher(picked_aes_key, iv)
         enc = ciph.encryptor()
         enc_message = enc.update(message) + enc.finalize()
         
-        # RSA Public Key encryption of AES key
+        # RSA Public Key encryption of AES key, see https://cryptography.io/en/latest/hazmat/primitives/asymmetric/rsa/#encryption
         aes_transmit : bytes = recipient.get_pub_key().encrypt(
             picked_aes_key,
             padding.OAEP(
@@ -52,7 +53,11 @@ def client():
                 hashes.SHA256()
             )
         )
-        self.connected_client.messages.append()
+        
+        # Creating HMAC of encrypted message and AES key
+        
+        # Sending message to recipient
+        recipient.messages.append()
         
 
 if __name__ == "__main__":
