@@ -1,10 +1,11 @@
 from cryptography.hazmat.primitives.asymmetric import rsa, keywrap, padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, hmac
 import os
 import sys
 
 AES_KEY_SIZE = 256
+SYSTEM_HMAC_KEY = os.urandom(32)
 
 def main():
     sendCli = client()
@@ -55,9 +56,12 @@ def client():
         )
         
         # Creating HMAC of encrypted message and AES key
-        
+        hmac_sys = hmac.HMAC(SYSTEM_HMAC_KEY, hashes.SHA256())
+        hmac_sys.update(enc_message)
+        hmac_sys.update(aes_transmit)
+        mac = hmac_sys.finalize()
         # Sending message to recipient
-        recipient.messages.append()
+        recipient.messages.append([enc_message, aes_transmit, mac])
         
 
 if __name__ == "__main__":
