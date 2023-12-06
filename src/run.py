@@ -1,3 +1,4 @@
+from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes, hmac
@@ -15,8 +16,8 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python run.py <message_filepath>")
         return
-    name_one = requests.get("https://random-word-api.herokuapp.com/word?length=6")
-    name_two = requests.get("https://random-word-api.herokuapp.com/word?length=6")
+    name_one = requests.get("https://random-word-api.herokuapp.com/word").json()[0]
+    name_two = requests.get("https://random-word-api.herokuapp.com/word").json()[0]
     sendCli = client(name_one)
     recvCli = client(name_two)
     sendCli.send_message(sys.argv[1], recvCli)
@@ -41,7 +42,8 @@ class client():
     
     def create_mac(*args):
         hmac_sys = hmac.HMAC(SYSTEM_HMAC_KEY, hashes.SHA256())
-        for data in args: hmac_sys.update(data)
+        for data in args[1:]:
+            hmac_sys.update(data)
         mac = hmac_sys.finalize()
         return mac
     
@@ -60,14 +62,19 @@ class client():
         # AES encryption of message, see https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/
         ciph = Cipher(picked_aes_key, SYSTEM_IV)
         enc = ciph.encryptor()
-        enc_message = enc.update(message) + enc.finalize()
+        
+        # Data padding, see https://www.askpython.com/python/examples/implementing-aes-with-padding
+        padder = PKCS7(algorithms.AES.block_size).padder()
+        padded_data = padder.update(message) + padder.finalize()
+        enc_message = enc.update(padded_data) + enc.finalize()
         
         # RSA Public Key encryption of AES key, see https://cryptography.io/en/latest/hazmat/primitives/asymmetric/rsa/#encryption
-        aes_transmit : bytes = recipient.get_pub_key().encrypt(
-            picked_aes_key,
+        aes_transmit = recipient.get_pub_key().encrypt(
+            picked_aes_key.key,
             padding.OAEP(
-                padding.MGF1(hashes.SHA256()),
-                hashes.SHA256()
+                mgf=padding.MGF1(hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
             )
         )
         
@@ -94,7 +101,8 @@ class client():
             aes_trans,
             padding.OAEP(
                 padding.MGF1(hashes.SHA256()),
-                hashes.SHA256()
+                hashes.SHA256(),
+                label=None
             )
         )
         
