@@ -4,6 +4,7 @@ from cryptography.hazmat.primitives import hashes, hmac
 import os
 import random
 import sys
+import requests
 
 AES_KEY_SIZE = 32
 SYSTEM_IV = modes.CBC(os.urandom(16))
@@ -14,14 +15,20 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python run.py <message_filepath>")
         return
-    sendCli = client(None)
-    recvCli = client(None)
+    name_one = requests.get("https://random-word-api.herokuapp.com/word?length=6")
+    name_two = requests.get("https://random-word-api.herokuapp.com/word?length=6")
+    sendCli = client(name_one)
+    recvCli = client(name_two)
     sendCli.send_message(sys.argv[1], recvCli)
     
 
 class client():
     name : str
     rsa_key_pair : rsa.RSAPrivateKey
+    
+    def __str__(self):
+        return self.name
+    
     def __init__(self, name: str | None):
         if name is None:
             self.name = random.choice(["Andy", "Alex", "Blair", "Royal", "Arron", "Ashley", "Tory", "Cecil", "Marley", "Cody"])
@@ -67,6 +74,7 @@ class client():
         # Creating HMAC of encrypted message and AES key
         mac = self.create_mac(enc_message, aes_transmit)
         # Sending message to recipient
+        print(self, "is sending", message, "to", recipient)
         recipient.recieve_message((enc_message, aes_transmit, mac), self)
     
     def recieve_message(self, message_block: tuple, sender):
@@ -96,7 +104,7 @@ class client():
         dec_message = dec.update(enc_msg) + dec.finalize()
         
         # Print message
-        print(dec_message)
+        print("decrypted encrypted message as", dec_message)
 
 if __name__ == "__main__":
     main()
