@@ -10,6 +10,7 @@ import requests
 AES_KEY_BIT_SIZE = 256
 # Very unsafe, should refactor out of existence
 SYSTEM_IV = modes.CBC(os.urandom(16))
+SYSTEM_HMAC_KEY = os.urandom(32)
 
 def main():
     print(sys.argv)
@@ -42,7 +43,7 @@ class client():
         return self.rsa_key_pair.public_key()
     
     def create_mac(*args):
-        hmac_sys = hmac.HMAC(os.urandom(32), hashes.SHA256())
+        hmac_sys = hmac.HMAC(SYSTEM_HMAC_KEY, hashes.SHA256())
         for data in args[1:]:
             hmac_sys.update(data)
         mac = hmac_sys.finalize()
@@ -112,8 +113,13 @@ class client():
         dec = ciph.decryptor()
         dec_message = dec.update(enc_msg) + dec.finalize()
         
+        # Remove padding from message
+        unpadder = PKCS7(algorithms.AES.block_size).unpadder()
+        unpadded_message = unpadder.update(dec_message) + unpadder.finalize()
+        
+        
         # Print message
-        print("decrypted encrypted message as", dec_message)
+        print("decrypted encrypted message as", unpadded_message)
 
 if __name__ == "__main__":
     main()
