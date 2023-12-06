@@ -8,14 +8,15 @@ import sys
 import requests
 
 AES_KEY_BIT_SIZE = 256
+# Very unsafe, should refactor out of existence
 SYSTEM_IV = modes.CBC(os.urandom(16))
-SYSTEM_HMAC_KEY = os.urandom(32)
 
 def main():
     print(sys.argv)
     if len(sys.argv) != 2:
         print("Usage: python run.py <message_filepath>")
         return
+    # This was more for me than the project
     name_one = requests.get("https://random-word-api.herokuapp.com/word").json()[0]
     name_two = requests.get("https://random-word-api.herokuapp.com/word").json()[0]
     sendCli = client(name_one)
@@ -41,7 +42,7 @@ class client():
         return self.rsa_key_pair.public_key()
     
     def create_mac(*args):
-        hmac_sys = hmac.HMAC(SYSTEM_HMAC_KEY, hashes.SHA256())
+        hmac_sys = hmac.HMAC(os.urandom(32), hashes.SHA256())
         for data in args[1:]:
             hmac_sys.update(data)
         mac = hmac_sys.finalize()
