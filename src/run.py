@@ -86,7 +86,7 @@ class client():
     
     def recieve_message(self, message_block: tuple, sender):
         # Print received data
-        print(f"recieved {message_block} from {sender}")
+        print(f"{self} recieved {str(message_block)[0:7]}...{str(message_block)[len(str(message_block))-7:len(str(message_block))]} from {sender}")
         
         enc_msg, aes_trans, mac = message_block
         
@@ -107,7 +107,7 @@ class client():
         )
         
         # Decrypt message
-        ciph = Cipher(aes_recv, SYSTEM_IV)
+        ciph = Cipher(algorithms.AES(aes_recv), SYSTEM_IV)
         dec = ciph.decryptor()
         dec_message = dec.update(enc_msg) + dec.finalize()
         
