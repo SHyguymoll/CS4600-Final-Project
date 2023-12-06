@@ -7,7 +7,7 @@ import random
 import sys
 import requests
 
-AES_KEY_SIZE = 32
+AES_KEY_BIT_SIZE = 256
 SYSTEM_IV = modes.CBC(os.urandom(16))
 SYSTEM_HMAC_KEY = os.urandom(32)
 
@@ -49,7 +49,7 @@ class client():
     
     def send_message(self, msg_location: str, recipient) -> None:
         # initializing and creating AES key with initialization vector (both random)
-        picked_aes_key = algorithms.AES(bytes(os.urandom(AES_KEY_SIZE)))
+        picked_aes_key = algorithms.AES(bytes(os.urandom(AES_KEY_BIT_SIZE//8)))
         
         # opening message from file
         message_file = open(msg_location)
