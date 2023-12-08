@@ -8,9 +8,6 @@ import sys
 import requests
 
 AES_KEY_BIT_SIZE = 256
-# Very unsafe, should refactor out of existence
-SYSTEM_IV = modes.CBC(os.urandom(16))
-SYSTEM_HMAC_KEY = os.urandom(32)
 
 def main():
     print(sys.argv)
@@ -35,7 +32,7 @@ class client():
             return self.uniq_id == other.uniq_id
         return False
     
-    def __init__(self, name: str | None):
+    def __init__(self, name: str = None):
         if name is None:
             # This was more for me than the project
             self.name = requests.get("https://random-word-api.herokuapp.com/word").json()[0]
@@ -47,16 +44,19 @@ class client():
     def get_pub_key(self) -> rsa.RSAPublicKey:
         return self.rsa_key_pair.public_key()
     
-    def create_mac(*args):
-        hmac_sys = hmac.HMAC(SYSTEM_HMAC_KEY, hashes.SHA256())
-        for data in args[1:]:
+    def create_mac(self, hmac_key, to_mac):
+        hmac_sys = hmac.HMAC(hmac_key, hashes.SHA256())
+        for data in to_mac:
             hmac_sys.update(data)
         mac = hmac_sys.finalize()
         return mac
     
     def send_message(self, msg_location: str, recipient) -> None:
         # initializing and creating AES key with initialization vector (both random)
-        picked_aes_key = algorithms.AES(bytes(os.urandom(AES_KEY_BIT_SIZE//8)))
+        picked_aes_key = algorithms.AES(os.urandom(AES_KEY_BIT_SIZE//8))
+
+        picked_iv = os.urandom(16)
+        picked_hmac_key = os.urandom(32)
         
         # opening message from file
         message_file = open(msg_location)
@@ -66,18 +66,36 @@ class client():
             print("message has no content, aborting.")
             return
         
-        # AES encryption of message, see https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/
-        ciph = Cipher(picked_aes_key, SYSTEM_IV)
-        enc = ciph.encryptor()
-        
         # Data padding, see https://www.askpython.com/python/examples/implementing-aes-with-padding
         padder = PKCS7(algorithms.AES.block_size).padder()
         padded_data = padder.update(message) + padder.finalize()
+
+        # AES encryption of message, see https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/
+        ciph = Cipher(picked_aes_key, modes.CBC(picked_iv))
+        enc = ciph.encryptor()
         enc_message = enc.update(padded_data) + enc.finalize()
         
         # RSA Public Key encryption of AES key, see https://cryptography.io/en/latest/hazmat/primitives/asymmetric/rsa/#encryption
-        aes_transmit = recipient.get_pub_key().encrypt(
+        aes_key_transmit = recipient.get_pub_key().encrypt(
             picked_aes_key.key,
+            padding.OAEP(
+                mgf=padding.MGF1(hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+
+        # Ditto encryption of HMAC IV and key
+        aes_iv_transmit = recipient.get_pub_key().encrypt(
+            picked_iv,
+            padding.OAEP(
+                mgf=padding.MGF1(hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+        h_key_transmit = recipient.get_pub_key().encrypt(
+            picked_hmac_key,
             padding.OAEP(
                 mgf=padding.MGF1(hashes.SHA256()),
                 algorithm=hashes.SHA256(),
@@ -86,26 +104,43 @@ class client():
         )
         
         # Creating HMAC of encrypted message and AES key
-        mac = self.create_mac(enc_message, aes_transmit)
+        mac = self.create_mac(picked_hmac_key, (enc_message, aes_key_transmit, aes_iv_transmit, h_key_transmit))
         # Sending message to recipient
         print(self, "is sending", message, "to", recipient)
-        recipient.recieve_message((enc_message, aes_transmit, mac), self)
+        recipient.recieve_message((enc_message, aes_key_transmit, aes_iv_transmit, h_key_transmit, mac), self)
     
     def recieve_message(self, message_block: tuple, sender):
         # Print received data
         print(f"{self} recieved {message_block} from {sender}")
         
-        enc_msg, aes_trans, mac = message_block
-        
+        enc_msg, aes_key_trans, aes_iv_trans, h_key_trans, mac = message_block
+        # Decrypt HMAC key
+        hmac_key_recv = self.rsa_key_pair.decrypt(
+            h_key_trans,
+            padding.OAEP(
+                padding.MGF1(hashes.SHA256()),
+                hashes.SHA256(),
+                label=None
+            )
+        )
+
         # MAC check
-        comp_mac = self.create_mac(enc_msg, aes_trans)
+        comp_mac = self.create_mac(hmac_key_recv, (enc_msg, aes_key_trans, aes_iv_trans, h_key_trans))
         if comp_mac != mac:
             print("MAC comparison failed! Aborting decryption.")
             return
         
-        # Decrypt AES key
-        aes_recv = self.rsa_key_pair.decrypt(
-            aes_trans,
+        # Decrypt AES key and AES iv
+        aes_key_recv = self.rsa_key_pair.decrypt(
+            aes_key_trans,
+            padding.OAEP(
+                padding.MGF1(hashes.SHA256()),
+                hashes.SHA256(),
+                label=None
+            )
+        )
+        aes_iv_recv = self.rsa_key_pair.decrypt(
+            aes_iv_trans,
             padding.OAEP(
                 padding.MGF1(hashes.SHA256()),
                 hashes.SHA256(),
@@ -114,14 +149,13 @@ class client():
         )
         
         # Decrypt message
-        ciph = Cipher(algorithms.AES(aes_recv), SYSTEM_IV)
+        ciph = Cipher(algorithms.AES(aes_key_recv), modes.CBC(aes_iv_recv))
         dec = ciph.decryptor()
         dec_message = dec.update(enc_msg) + dec.finalize()
         
         # Remove padding from message
         unpadder = PKCS7(algorithms.AES.block_size).unpadder()
         unpadded_message = unpadder.update(dec_message) + unpadder.finalize()
-        
         
         # Print message
         print(self, "decrypted encrypted message as", unpadded_message)
