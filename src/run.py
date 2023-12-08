@@ -7,7 +7,11 @@ import random
 import sys
 import requests
 
-AES_KEY_BIT_SIZE = 256
+AES_KEY_LENGTH = 32
+AES_IV_LENGTH = 16
+HMAC_KEY_LENGTH = 32
+
+CLIENT_ID_LENGTH = 8
 
 def main():
     print(sys.argv)
@@ -39,7 +43,7 @@ class client():
         else:
             self.name = name
         self.rsa_key_pair = rsa.generate_private_key(public_exponent=65537,key_size=2048)
-        self.uniq_id = int.from_bytes(os.urandom(8), sys.byteorder)
+        self.uniq_id = int.from_bytes(os.urandom(CLIENT_ID_LENGTH), sys.byteorder)
     
     def get_pub_key(self) -> rsa.RSAPublicKey:
         return self.rsa_key_pair.public_key()
@@ -53,10 +57,10 @@ class client():
     
     def send_message(self, msg_location: str, recipient) -> None:
         # initializing and creating AES key with initialization vector (both random)
-        picked_aes_key = algorithms.AES(os.urandom(AES_KEY_BIT_SIZE//8))
+        picked_aes_key = algorithms.AES(os.urandom(AES_KEY_LENGTH))
 
-        picked_iv = os.urandom(16)
-        picked_hmac_key = os.urandom(32)
+        picked_iv = os.urandom(AES_IV_LENGTH)
+        picked_hmac_key = os.urandom(HMAC_KEY_LENGTH)
         
         # opening message from file
         message_file = open(msg_location)
