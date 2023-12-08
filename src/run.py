@@ -28,9 +28,15 @@ def main():
 class client():
     name : str
     rsa_key_pair : rsa.RSAPrivateKey
+    uniq_id : int
     
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.uniq_id})"
+    
+    def __eq__(self, other):
+        if isinstance(other, client):
+            return self.uniq_id == other.uniq_id
+        return False
     
     def __init__(self, name: str | None):
         if name is None:
@@ -38,6 +44,7 @@ class client():
         else:
             self.name = name
         self.rsa_key_pair = rsa.generate_private_key(public_exponent=65537,key_size=2048)
+        self.uniq_id = int.from_bytes(os.urandom(8), sys.byteorder)
     
     def get_pub_key(self) -> rsa.RSAPublicKey:
         return self.rsa_key_pair.public_key()
@@ -88,7 +95,7 @@ class client():
     
     def recieve_message(self, message_block: tuple, sender):
         # Print received data
-        print(f"{self} recieved {str(message_block)[0:7]}...{str(message_block)[len(str(message_block))-7:len(str(message_block))]} from {sender}")
+        print(f"{self} recieved {message_block} from {sender}")
         
         enc_msg, aes_trans, mac = message_block
         
@@ -119,7 +126,7 @@ class client():
         
         
         # Print message
-        print("decrypted encrypted message as", unpadded_message)
+        print(self, "decrypted encrypted message as", unpadded_message)
 
 if __name__ == "__main__":
     main()
