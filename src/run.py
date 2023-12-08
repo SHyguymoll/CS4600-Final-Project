@@ -17,11 +17,8 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python run.py <message_filepath>")
         return
-    # This was more for me than the project
-    name_one = requests.get("https://random-word-api.herokuapp.com/word").json()[0]
-    name_two = requests.get("https://random-word-api.herokuapp.com/word").json()[0]
-    sendCli = client(name_one)
-    recvCli = client(name_two)
+    sendCli = client()
+    recvCli = client()
     sendCli.send_message(sys.argv[1], recvCli)
     
 
@@ -40,7 +37,8 @@ class client():
     
     def __init__(self, name: str | None):
         if name is None:
-            self.name = random.choice(["Andy", "Alex", "Blair", "Royal", "Arron", "Ashley", "Tory", "Cecil", "Marley", "Cody"])
+            # This was more for me than the project
+            self.name = requests.get("https://random-word-api.herokuapp.com/word").json()[0]
         else:
             self.name = name
         self.rsa_key_pair = rsa.generate_private_key(public_exponent=65537,key_size=2048)
