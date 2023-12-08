@@ -89,7 +89,7 @@ class client():
             )
         )
 
-        # Ditto encryption of HMAC IV and key
+        # Ditto encryption of AES IV and HMAC key
         aes_iv_transmit = recipient.get_pub_key().encrypt(
             picked_iv,
             padding.OAEP(
