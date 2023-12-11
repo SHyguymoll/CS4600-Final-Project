@@ -3,7 +3,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes, hmac
 import os
-import random
 import sys
 import requests
 
@@ -14,13 +13,13 @@ HMAC_KEY_LENGTH = 32
 CLIENT_ID_LENGTH = 8
 
 def main():
-    print(sys.argv)
-    if len(sys.argv) != 2:
-        print("Usage: python run.py <message_filepath>")
+    if len(sys.argv) < 2:
+        print("Usage: python run.py <message_filepath>...")
         return
-    sendCli = client()
-    recvCli = client()
-    sendCli.send_message(sys.argv[1], recvCli)
+    clientList = [client() for _ in range(len(sys.argv))]
+    for client_ind, file_path in enumerate(sys.argv[1:]):
+        clientList[client_ind - 1].send_message(file_path, clientList[client_ind])
+    return
     
 
 class client():

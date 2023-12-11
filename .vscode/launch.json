@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args":["message1.txt"]
+            "args":["message1.txt", "message2.txt"]
         }
     ]
 }
